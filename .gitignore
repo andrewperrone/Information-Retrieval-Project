@@ -1,0 +1,65 @@
+# Default: ignore everything
+*
+
+# Include Python files
+!*.py
+!*.pyc
+!*.pyo
+!*.pyd
+!__pycache__/
+!*.py[cod]
+!*$py.class
+!setup.py
+!requirements.txt
+
+# Include documentation
+!README.*
+!LICENSE
+!*.md
+
+# Include configuration files
+!.gitignore
+!.gitattributes
+!*.yaml
+!*.yml
+!*.json
+!*.toml
+
+# Exclude data files
+*.pkl
+*.pickle
+*.csv
+*.jsonl
+*.db
+*.sqlite
+*.sqlite3
+*.db3
+*.h5
+*.hdf5
+*.feather
+*.parquet
+*.xlsx
+*.xls
+*.pth
+*.pt
+*.bin
+*.npy
+*.npz
+*.mat
+*.data
+*.model
+*.joblib
+
+# Exclude directories
+gutenberg_corpus/
+gutenberg_corpus_old/
+ir-env/
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+__pycache__/
+build/
+dist/
+*.egg-info/
