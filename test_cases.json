@@ -1,0 +1,32 @@
+[
+    {
+        "target_title": "Moby Dick",
+        "query": "whale ship captain",
+        "emotion": "fear"
+    },
+    {
+        "target_title": "Alice in Wonderland",
+        "query": "rabbit tea queen",
+        "emotion": "surprise"
+    },
+    {
+        "target_title": "Dracula",
+        "query": "vampire blood castle",
+        "emotion": "fear"
+    },
+    {
+        "target_title": "Pride and Prejudice",
+        "query": "marriage sisters love",
+        "emotion": "joy"
+    },
+    {
+        "target_title": "Winnie the Pooh",
+        "query": "bear honey",
+        "emotion": "trust"
+    },
+    {
+        "target_title": "Frankenstein",
+        "query": "monster scientist ice",
+        "emotion": "fear"
+    }
+]
