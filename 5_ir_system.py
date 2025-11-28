@@ -50,6 +50,13 @@ class IRSystem:
         self.emotion_data = {}
         self.doc_ids = []
         
+        # Ensure WordNet is available for synonyms
+        try:
+            nltk.data.find('corpora/wordnet')
+        except LookupError:
+            print("Downloading WordNet data...")
+            nltk.download('wordnet')
+        
         self._load_data()
         
     def _load_data(self):
@@ -79,13 +86,40 @@ class IRSystem:
             
         print(f"System loaded in {time.time() - start_time:.2f} seconds.")
 
+    def get_synonyms(self, word):
+        """
+        Returns a set of synonyms for a given word using WordNet.
+        """
+        synonyms = set()
+        # Look up the word in WordNet
+        for syn in wordnet.synsets(word):
+            for lemma in syn.lemmas():
+                # Add the synonym, replacing underscores with spaces if needed
+                clean_syn = lemma.name().lower().replace('_', ' ')
+                # Only add single words to keep it simple, or handle phrases later
+                if ' ' not in clean_syn: 
+                    synonyms.add(clean_syn)
+        return synonyms
+
     def process_query(self, query_text):
-        tokens = re.findall(r'\b[a-z]+\b', query_text.lower())
-        return tokens
+        """
+        Tokenizes query AND adds synonyms.
+        Input: "ghost"
+        Output: ["ghost", "spectre", "apparition", "phantom"...]
+        """
+        raw_tokens = re.findall(r'\b[a-z]+\b', query_text.lower())
+        expanded_tokens = set(raw_tokens) # Use set to avoid duplicates
+        
+        for token in raw_tokens:
+            # Get synonyms
+            syns = self.get_synonyms(token)
+            expanded_tokens.update(syns)
+            
+        return list(expanded_tokens)
 
     def text_search(self, query_text):
         """
-        Performs a Length-Normalized TF-IDF search.
+        Performs a Length-Normalized TF-IDF search with Query Expansion.
         """
         tokens = self.process_query(query_text)
         if not tokens:
@@ -153,7 +187,7 @@ if __name__ == "__main__":
     system = IRSystem()
     
     print("\n" + "="*40)
-    print("   DEV LEVEL SEARCH ENGINE (Tuner Ready)")
+    print("   DEV LEVEL SEARCH ENGINE (Synonyms Active)")
     print("   (Type 'exit' to quit)")
     print("="*40)
     
