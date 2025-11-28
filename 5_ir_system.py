@@ -34,6 +34,8 @@ import os
 import re
 import time
 import numpy as np
+import nltk
+from nltk.corpus import wordnet
 from collections import defaultdict
 
 # --- Configuration ---
