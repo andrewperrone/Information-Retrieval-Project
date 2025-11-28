@@ -35,10 +35,40 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+# --- SHARED DENYLIST (Space-separated) ---
+# This list matches the logic in corpus_cleaner.py
+DENYLIST = [
+    # Collections / Compilations
+    "complete works", "collected works", "compilation", "anthology",
+    "short stories", "best russian short stories", "tales", "fables",
+    "reader", "works of", "series",
+    
+    # Massive/Complete Editions
+    "complete", "volume", "vol.", "books 1",
+    
+    # Reference / Non-Narrative
+    "dictionary", "thesaurus", "encyclopaedia", "encyclopedia", "factbook",
+    "index of", "handbook", "manual", "guide", "quotations", "atlas",
+    "grammar", "roget", "webster", "digest", "roll of", "record",
+    "register", "yearbook", "report", "census", "gazetteer",
+    
+    # History / Biography / Philosophy / Science
+    "memoirs", "biography", "autobiography", "life of", "history of",
+    "chronicle", "letters of", "essays", "treatise", "dialogues",
+    "discourses", "commentaries", "diary", "journal", "lives of",
+    "philosophy", "psychology", "science", "theory", "principles",
+    "inquiry", "study of", "narrative of",
+    
+    # Specific Failures
+    "radiolaria", "what is art", "systematic", "botany", "zoology", 
+    "language of flowers", "crimes of", "preachers", "commentary", "prayers",
+    
+    # Epics / Religious
+    "mahabharata", "ramayana", "bible", "testament", "psalms",
+    "sermons", "divine comedy", "nibelungenlied"
+]
+
 def strip_gutenberg_headers(text):
-    """
-    Attempts to strip the Project Gutenberg header and footer from a plain text file.
-    """
     start_match = re.search(r"\*\*\*\s*START OF (THIS|THE) PROJECT GUTENBERG EBOOK.*?\*\*\*", text, re.IGNORECASE | re.DOTALL)
     if start_match:
         text = text[start_match.end():]
@@ -50,15 +80,10 @@ def strip_gutenberg_headers(text):
     return text.strip()
 
 def create_retry_session():
-    """
-    Creates a requests.Session() object with automatic retries
-    for temporary server errors.
-    """
     session = requests.Session()
     retry = Retry(
         total=5,
         backoff_factor=1, 
-        # Added 429 to the list of codes to retry on
         status_forcelist=[429, 500, 502, 503, 504], 
     )
     adapter = HTTPAdapter(max_retries=retry)
@@ -67,24 +92,18 @@ def create_retry_session():
     return session
 
 def download_and_clean_book(book_id, session):
-    """
-    Downloads and cleans a single book given its ID.
-    """
     api_url = f"https://gutendex.com/books/{book_id}"
     text_url = None
     html_url = None
     book_title = f"book_{book_id}" 
 
     try:
-        # 1. Get Book Metadata
-        # Small sleep to be polite
         time.sleep(0.5) 
         response = session.get(api_url)
         response.raise_for_status()
         book = response.json()
         book_title = book['title']
         
-        # 2. Triage formats
         for mimetype, url in book['formats'].items():
             if 'text/plain' in mimetype and (url.endswith('.txt') or url.endswith('.txt.utf-8')):
                 text_url = url
@@ -92,7 +111,6 @@ def download_and_clean_book(book_id, session):
             elif 'text/html' in mimetype:
                 html_url = url
         
-        # 3. Download and Parse
         clean_text = None
         
         if text_url:
@@ -118,9 +136,6 @@ def download_and_clean_book(book_id, session):
         return None, None
 
 def save_book(book_id, title, text, directory="gutenberg_corpus"):
-    """
-    Saves the text to a file with a unique, clean filename.
-    """
     safe_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', title).strip().replace(' ', '_')
     if not safe_title:
         safe_title = "unknown_title"
@@ -148,7 +163,6 @@ if __name__ == "__main__":
         os.makedirs(SAVE_DIRECTORY)
         print(f"Created directory: {SAVE_DIRECTORY}")
         
-    # --- Check for existing files ---
     print(f"Checking for existing files in {SAVE_DIRECTORY}...")
     try:
         existing_files = os.listdir(SAVE_DIRECTORY)
@@ -176,7 +190,6 @@ if __name__ == "__main__":
     while success_count < TARGET_BOOK_COUNT and next_page_url:
         print(f"Fetching next page of results: {next_page_url}")
         
-        # --- Page Fetch Retry Loop ---
         data = None
         page_retries = 0
         MAX_PAGE_RETRIES = 5
@@ -186,11 +199,9 @@ if __name__ == "__main__":
                 page_response = session.get(next_page_url)
                 page_response.raise_for_status()
                 data = page_response.json()
-                break # Success! Exit the retry loop
+                break 
             except requests.exceptions.RequestException as e:
                 print(f"  Error fetching page (Attempt {page_retries+1}/{MAX_PAGE_RETRIES}): {e}")
-                
-                # If we are rate limited (429), wait a LONG time (60s)
                 if "429" in str(e):
                     print("  >>> Rate Limit Hit (429). Sleeping for 60 seconds to cool down...")
                     time.sleep(60)
@@ -202,57 +213,22 @@ if __name__ == "__main__":
             print("Critical Error: Could not fetch page after multiple retries. Saving progress and stopping.")
             break
         
-        # Get the URL for the *next* page
         next_page_url = data.get('next')
         if not next_page_url:
             print("--- Reached the last page of results ---")
             
-        # --- Expanded Denylist (Matches corpus_cleaner.py) ---
-        TITLE_DENYLIST = [
-            # --- Collections / Compilations ---
-            "complete_works", "collected_works", "compilation", "anthology",
-            "short_stories", "best_russian_short_stories", "tales", "fables",
-            "reader", "works_of", "series",
-            
-            # --- Massive/Complete Editions ---
-            "complete", "volume", "vol_", "books_1",
-            
-            # --- Reference / Non-Narrative ---
-            "dictionary", "thesaurus", "encyclopaedia", "encyclopedia", "factbook",
-            "index_of", "handbook", "manual", "guide", "quotations", "atlas",
-            "grammar", "roget", "webster", "digest", "roll_of", "record",
-            "register", "yearbook", "report", "census", "gazetteer",
-            
-            # --- History / Biography / Philosophy / Science ---
-            "memoirs", "biography", "autobiography", "life_of", "history_of",
-            "chronicle", "letters_of", "essays", "treatise", "dialogues",
-            "discourses", "commentaries", "diary", "journal", "lives_of",
-            "philosophy", "psychology", "science", "theory", "principles",
-            "inquiry", "study_of", "narrative_of", # Often non-fiction travelogues
-            
-            # --- Specific Failures we found ---
-            "radiolaria", "what_is_art", "systematic", "botany", "zoology",
-            
-            # --- Epics / Religious ---
-            "mahabharata", "ramayana", "bible", "testament", "psalms",
-            "sermons", "divine_comedy", "nibelungenlied"
-        ]
-        
-        # Loop through the books on this page
         for book in data['results']:
             book_id_str = str(book['id'])
             book_title_lower = book['title'].lower()
             
-            # Skip existing
             if book_id_str in existing_ids:
                 continue 
             
-            # Skip denylist
-            if any(word in book_title_lower for word in TITLE_DENYLIST):
-                print(f"  Skipping ID {book_id_str}: Title '{book['title']}' is on denylist.")
+            # --- CHECK AGAINST DENYLIST ---
+            if any(keyword in book_title_lower for keyword in DENYLIST):
+                print(f"  Skipping ID {book_id_str}: Title '{book['title']}' matches denylist.")
                 continue
                 
-            # Skip non-English
             if 'en' not in book['languages']:
                 continue
 

@@ -41,6 +41,7 @@ from collections import defaultdict
 # --- Configuration ---
 INDEX_FILE = "search_index.pkl"
 EMOTION_FILE = "emotion_results.pkl"
+STATS_FILE = "emotion_stats.pkl" # <-- NEW: Needed for Z-Scores
 # ---------------------
 
 class IRSystem:
@@ -50,6 +51,7 @@ class IRSystem:
         self.idf_scores = {}
         self.doc_lengths = {}
         self.emotion_data = {}
+        self.emotion_stats = {} # <-- NEW
         self.doc_ids = []
         
         # Ensure WordNet is available for synonyms
@@ -85,35 +87,31 @@ class IRSystem:
                 self.doc_ids = list(self.emotion_data.keys())
         else:
             print(f"WARNING: {EMOTION_FILE} not found.")
+
+        # 3. Load Emotion Statistics (Z-Scores)
+        if os.path.exists(STATS_FILE):
+            print(f"Loading Emotion Stats from {STATS_FILE}...")
+            with open(STATS_FILE, 'rb') as f:
+                self.emotion_stats = pickle.load(f)
+        else:
+            print(f"WARNING: {STATS_FILE} not found. Z-Score ranking unavailable.")
             
         print(f"System loaded in {time.time() - start_time:.2f} seconds.")
 
     def get_synonyms(self, word):
-        """
-        Returns a set of synonyms for a given word using WordNet.
-        """
         synonyms = set()
-        # Look up the word in WordNet
         for syn in wordnet.synsets(word):
             for lemma in syn.lemmas():
-                # Add the synonym, replacing underscores with spaces if needed
                 clean_syn = lemma.name().lower().replace('_', ' ')
-                # Only add single words to keep it simple, or handle phrases later
                 if ' ' not in clean_syn: 
                     synonyms.add(clean_syn)
         return synonyms
 
     def process_query(self, query_text):
-        """
-        Tokenizes query AND adds synonyms.
-        Input: "ghost"
-        Output: ["ghost", "spectre", "apparition", "phantom"...]
-        """
         raw_tokens = re.findall(r'\b[a-z]+\b', query_text.lower())
-        expanded_tokens = set(raw_tokens) # Use set to avoid duplicates
+        expanded_tokens = set(raw_tokens)
         
         for token in raw_tokens:
-            # Get synonyms
             syns = self.get_synonyms(token)
             expanded_tokens.update(syns)
             
@@ -121,7 +119,7 @@ class IRSystem:
 
     def text_search(self, query_text):
         """
-        Performs a Length-Normalized TF-IDF search with Query Expansion.
+        Performs a Length-Normalized TF-IDF search.
         """
         tokens = self.process_query(query_text)
         if not tokens:
@@ -141,7 +139,6 @@ class IRSystem:
         final_scores = []
         for doc_id, raw_score in doc_scores.items():
             length = self.doc_lengths.get(doc_id, 1)
-            # Square root normalization
             norm_factor = np.sqrt(length)
             if norm_factor < 1: norm_factor = 1
             
@@ -153,34 +150,43 @@ class IRSystem:
 
     def filter_by_emotion(self, text_results, emotion, min_score=0, text_weight=1.0, emotion_weight=1.0):
         """
-        Filters and re-ranks results using a weighted formula.
+        Filters results using Z-Score normalization for emotions.
         """
         filtered_results = []
         
-        # If text_results is None/Empty, use ALL docs (Emotion-Only Mode)
         if text_results:
             candidates = text_results
         else:
             candidates = [(doc, 0) for doc in self.doc_ids]
+        
+        # Get Corpus Stats for this emotion
+        stats = self.emotion_stats.get(emotion)
         
         for doc_id, text_score in candidates:
             if doc_id in self.emotion_data:
                 raw_emotion_count = self.emotion_data[doc_id].get(emotion, 0)
                 length = self.doc_lengths.get(doc_id, 1)
                 
-                # Emotion Density (Percentage)
+                # Calculate Density
                 emotion_density = raw_emotion_count / length
-                emotion_score_scaled = emotion_density * 100
                 
-                # --- WEIGHTED SCORING LOGIC ---
-                weighted_text = text_score * text_weight
-                weighted_emotion = emotion_score_scaled * emotion_weight
+                # --- NEW: Z-Score Calculation ---
+                if stats and stats['std'] > 0:
+                    # Z = (Value - Mean) / StdDev
+                    z_score = (emotion_density - stats['mean']) / stats['std']
+                else:
+                    z_score = 0 
                 
-                combined_score = weighted_text + weighted_emotion
-                # ------------------------------
+                # Treat anything below average (negative Z) as 0 benefit for ranking
+                effective_emotion_score = max(0, z_score)
+
+                # Combined Score: Text + (Z-Score * Weight)
+                combined_score = (text_score * text_weight) + (effective_emotion_score * emotion_weight)
                 
+                # Filter logic (still use raw count for strict "min_score" filtering)
                 if raw_emotion_count >= min_score:
-                    filtered_results.append((doc_id, combined_score, emotion_score_scaled))
+                    # Return (doc_id, combined_score, Z-SCORE)
+                    filtered_results.append((doc_id, combined_score, z_score))
         
         return sorted(filtered_results, key=lambda x: x[1], reverse=True)
 
@@ -189,7 +195,7 @@ if __name__ == "__main__":
     system = IRSystem()
     
     print("\n" + "="*40)
-    print("   DEV LEVEL SEARCH ENGINE (Synonyms Active)")
+    print("   DEV LEVEL SEARCH ENGINE (Z-Score)")
     print("   (Type 'exit' to quit)")
     print("="*40)
     
@@ -217,22 +223,27 @@ if __name__ == "__main__":
             query = input("Enter search terms: ").strip()
             emotion = input("Enter emotion (joy, fear, anger, etc.): ").strip().lower()
             
+            # Using weights derived from your grid search (Text heavy)
             text_results = system.text_search(query)
-            final_results = system.filter_by_emotion(text_results, emotion)
+            final_results = system.filter_by_emotion(text_results, emotion, text_weight=0.5, emotion_weight=1.0)
             
             print(f"\nFound {len(final_results)} documents matching '{query}' with '{emotion}'.")
             print("--- Top 10 Results ---")
-            for doc, comb_score, emo_score in final_results[:10]:
-                print(f"[Comb: {comb_score:.2f} | {emotion}: {emo_score:.2f}%] {doc}")
+            for doc, comb_score, z_score in final_results[:10]:
+                # Updated print to show Z-Score
+                print(f"[Comb: {comb_score:.2f} | {emotion} Z-Score: {z_score:+.2f}] {doc}")
 
         elif choice == '3':
             emotion = input("Enter emotion to explore (joy, fear, etc.): ").strip().lower()
-            final_results = system.filter_by_emotion([], emotion)
+            
+            # Emotion Only mode
+            final_results = system.filter_by_emotion([], emotion, text_weight=0.0, emotion_weight=1.0)
             
             print(f"\nFound {len(final_results)} documents ranked by '{emotion}'.")
             print(f"--- Top 10 Most '{emotion.title()}' Books ---")
-            for doc, comb_score, emo_score in final_results[:10]:
-                print(f"[Density: {emo_score:.2f}%] {doc}")
+            for doc, comb_score, z_score in final_results[:10]:
+                # Updated print to show Z-Score
+                print(f"[Z-Score: {z_score:+.2f}] {doc}")
                 
         else:
             print("Invalid choice.")

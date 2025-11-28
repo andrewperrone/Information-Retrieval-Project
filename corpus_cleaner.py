@@ -32,41 +32,36 @@ import os
 # --- Configuration ---
 CORPUS_DIR = "gutenberg_corpus"
 
-import os
-
-# --- Configuration ---
-CORPUS_DIR = "gutenberg_corpus"
-
-# Case-insensitive keywords that indicate a file should be deleted
-# These must match the denylist in download_corpus.py to prevent re-download loops
-DELETE_KEYWORDS = [
-    # --- Collections / Compilations ---
-    "complete_works", "collected_works", "compilation", "anthology",
-    "short_stories", "best_russian_short_stories", "tales", "fables",
-    "reader", "works_of", "series",
+# --- SHARED DENYLIST (Matches download_corpus.py) ---
+DENYLIST = [
+    # Collections / Compilations
+    "complete works", "collected works", "compilation", "anthology",
+    "short stories", "best russian short stories", "tales", "fables",
+    "reader", "works of", "series",
     
-    # --- Massive/Complete Editions ---
-    "complete", "volume", "vol_", "books_1",
+    # Massive/Complete Editions
+    "complete", "volume", "vol.", "books 1",
     
-    # --- Reference / Non-Narrative ---
+    # Reference / Non-Narrative
     "dictionary", "thesaurus", "encyclopaedia", "encyclopedia", "factbook",
-    "index_of", "handbook", "manual", "guide", "quotations", "atlas",
-    "grammar", "roget", "webster", "digest", "roll_of", "record",
+    "index of", "handbook", "manual", "guide", "quotations", "atlas",
+    "grammar", "roget", "webster", "digest", "roll of", "record",
     "register", "yearbook", "report", "census", "gazetteer",
     
-    # --- History / Biography / Philosophy / Science ---
-    "memoirs", "biography", "autobiography", "life_of", "history_of",
-    "chronicle", "letters_of", "essays", "treatise", "dialogues",
-    "discourses", "commentaries", "diary", "journal", "lives_of",
+    # History / Biography / Philosophy / Science
+    "memoirs", "biography", "autobiography", "life of", "history of",
+    "chronicle", "letters of", "essays", "treatise", "dialogues",
+    "discourses", "commentaries", "diary", "journal", "lives of",
     "philosophy", "psychology", "science", "theory", "principles",
-    "inquiry", "study_of", "narrative_of", # Often non-fiction travelogues
+    "inquiry", "study of", "narrative of",
     
-    # --- Specific Failures we found ---
-    "radiolaria", "what_is_art", "systematic", "botany", "zoology",
+    # Specific Failures
+    "radiolaria", "what is art", "systematic", "botany", "zoology", 
+    "language of flowers", "crimes of", "preachers", "commentary", "prayers",
     
-    # --- Epics / Religious ---
+    # Epics / Religious
     "mahabharata", "ramayana", "bible", "testament", "psalms",
-    "sermons", "divine_comedy", "nibelungenlied"
+    "sermons", "divine comedy", "nibelungenlied"
 ]
 
 def clean_corpus(directory):
@@ -85,12 +80,17 @@ def clean_corpus(directory):
             continue
             
         file_path = os.path.join(directory, filename)
-        lower_name = filename.lower()
+        
+        # --- NORMALIZATION LOGIC ---
+        # Convert filename to "title-like" string for matching.
+        # "123_complete_works.txt" -> "123 complete works txt"
+        # This ensures it matches the space-separated keywords in DENYLIST.
+        normalized_name = filename.lower().replace("_", " ").replace("-", " ")
         
         # Check against keywords
         should_delete = False
-        for keyword in DELETE_KEYWORDS:
-            if keyword in lower_name:
+        for keyword in DENYLIST:
+            if keyword in normalized_name:
                 should_delete = True
                 print(f"Deleting: {filename} (Matched: '{keyword}')")
                 try:
