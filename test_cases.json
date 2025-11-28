@@ -28,5 +28,75 @@
         "target_title": "Frankenstein",
         "query": "monster scientist ice",
         "emotion": "fear"
+    },
+    {
+        "target_title": "The Adventures of Sherlock Holmes",
+        "query": "detective watson crime",
+        "emotion": "anticipation"
+    },
+    {
+        "target_title": "The Picture of Dorian Gray",
+        "query": "portrait painting youth",
+        "emotion": "disgust"
+    },
+    {
+        "target_title": "The Great Gatsby",
+        "query": "party green light rich",
+        "emotion": "joy"
+    },
+    {
+        "target_title": "A Christmas Carol",
+        "query": "ghost miser chains",
+        "emotion": "fear"
+    },
+    {
+        "target_title": "Metamorphosis",
+        "query": "insect beetle gregor",
+        "emotion": "sadness"
+    },
+    {
+        "target_title": "Treasure Island",
+        "query": "pirates map buried gold",
+        "emotion": "anticipation"
+    },
+    {
+        "target_title": "Jane Eyre",
+        "query": "governess rochester fire",
+        "emotion": "trust"
+    },
+    {
+        "target_title": "The Adventures of Tom Sawyer",
+        "query": "fence cave mississippi",
+        "emotion": "joy"
+    },
+    {
+        "target_title": "The Time Machine",
+        "query": "future time travel",
+        "emotion": "surprise"
+    },
+    {
+        "target_title": "Heart of Darkness",
+        "query": "jungle river ivory",
+        "emotion": "fear"
+    },
+    {
+        "target_title": "Little Women",
+        "query": "sisters march family",
+        "emotion": "trust"
+    },
+    {
+        "target_title": "The War of the Worlds",
+        "query": "martians invasion tripods",
+        "emotion": "fear"
+    },
+    {
+        "target_title": "The Yellow Wallpaper",
+        "query": "wallpaper madness room",
+        "emotion": "fear"
+    },
+    {
+        "target_title": "Sense and Sensibility",
+        "query": "dashwood sisters romance",
+        "emotion": "trust"
     }
 ]

@@ -33,7 +33,14 @@ Process:
 
 import json
 import os
-from ir_system import IRSystem
+import re
+import importlib.util
+spec = importlib.util.spec_from_file_location("ir_system", "5_ir_system.py")
+ir_system = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ir_system)
+IRSystem = ir_system.IRSystem
+# Above replaces this faulty import:
+# from 5_ir_system import IRSystem
 
 # --- Configuration ---
 TEST_CASES_FILE = "test_cases.json"
@@ -45,35 +52,40 @@ class IREvaluator:
         self.system = IRSystem()
         self.corpus_files = self.system.doc_ids
         
+    def normalize_string(self, text):
+        """
+        Aggressively cleans a string for fuzzy matching.
+        """
+        text = text.lower()
+        text = text.replace("_", " ").replace("-", " ")
+        text = re.sub(r'\s+', ' ', text).strip()
+        return text
+
     def find_target_doc_id(self, target_title_fragment):
         """
-        Fuzzy search to find the actual filename (doc_id) based on a user's
-        simple book title (e.g., "Moby Dick" -> "2701_Moby_Dick_Or_The_Whale.txt").
+        Fuzzy search to find the actual filename.
         """
-        target_title_fragment = target_title_fragment.lower()
+        target_clean = self.normalize_string(target_title_fragment)
         matches = []
-        
         for doc_id in self.corpus_files:
-            # Normalize filename for search (replace underscores with spaces)
-            clean_name = doc_id.lower().replace("_", " ")
-            if target_title_fragment in clean_name:
+            filename_clean = self.normalize_string(doc_id)
+            if target_clean in filename_clean:
                 matches.append(doc_id)
-        
-        if not matches:
-            return None
-        
-        # If multiple matches (e.g., duplicates), return the list.
-        # Any of these being high ranked counts as success.
         return matches
 
-    def evaluate(self):
-        print(f"\n{'='*60}")
-        print(f"STARTING AUTOMATED EVALUATION")
-        print(f"{'='*60}")
+    def evaluate(self, text_weight=1.0, emotion_weight=1.0, verbose=True):
+        """
+        Runs the evaluation suite with specific weights.
+        Returns the Mean Reciprocal Rank (MRR) score.
+        """
+        if verbose:
+            print(f"\n{'='*60}")
+            print(f"EVALUATION | Text Weight: {text_weight} | Emotion Weight: {emotion_weight}")
+            print(f"{'='*60}")
         
         if not os.path.exists(TEST_CASES_FILE):
             print(f"Error: {TEST_CASES_FILE} not found.")
-            return
+            return 0.0
 
         with open(TEST_CASES_FILE, 'r') as f:
             test_cases = json.load(f)
@@ -86,58 +98,52 @@ class IREvaluator:
             query = case['query']
             emotion = case['emotion']
             
-            print(f"\n--- Case: '{target_title}' ---")
-            print(f"    Query: '{query}' + '{emotion}'")
-            
-            # 1. Identify the Target File(s)
+            # 1. Identify Target
             target_ids = self.find_target_doc_id(target_title)
             if not target_ids:
-                print(f"    [SKIPPED] Target book '{target_title}' not found in corpus.")
+                if verbose: print(f"    [SKIPPED] '{target_title}' not found in corpus.")
                 continue
             
-            # 2. Run the System
-            # We get the top 50 results to check deeper rankings
+            # 2. Run System with WEIGHTS
             text_results = self.system.text_search(query)
-            final_results = self.system.filter_by_emotion(text_results, emotion)
+            
+            # --- PASSING WEIGHTS HERE ---
+            final_results = self.system.filter_by_emotion(
+                text_results, 
+                emotion, 
+                text_weight=text_weight, 
+                emotion_weight=emotion_weight
+            )
             
             # 3. Find Rank
             rank = float('inf')
-            found_id = None
             
             for i, (doc_id, score, emo_score) in enumerate(final_results):
-                # Check if this result is one of our acceptable targets
                 if doc_id in target_ids:
-                    rank = i + 1 # 1-based index
-                    found_id = doc_id
+                    rank = i + 1
                     break
             
-            # 4. Score (Reciprocal Rank)
-            # Score = 1/Rank. 
-            # Rank 1 = 1.0, Rank 2 = 0.5, Rank 5 = 0.2, Not Found = 0.0
+            # 4. Score
             reciprocal_rank = 0.0
             if rank != float('inf'):
                 reciprocal_rank = 1.0 / rank
-                print(f"    [SUCCESS] Found at Rank #{rank} ({found_id})")
+                if verbose: print(f"  [#{rank}] {target_title:<25} (Query: {query} + {emotion})")
             else:
-                print(f"    [FAILURE] Not found in top results.")
-                
-            print(f"    Score: {reciprocal_rank:.4f}")
+                if verbose: print(f"  [FAIL] {target_title:<25} (Not in top results)")
             
             total_mrr += reciprocal_rank
             total_cases += 1
 
-        # --- Final Report ---
+        # --- Final Calculation ---
         if total_cases > 0:
             avg_mrr = total_mrr / total_cases
-            print(f"\n{'='*60}")
-            print(f"EVALUATION SUMMARY")
-            print(f"{'='*60}")
-            print(f"Total Cases Run: {total_cases}")
-            print(f"Mean Reciprocal Rank (MRR): {avg_mrr:.4f}")
-            print(f"  (1.0 = Perfect, >0.5 = Good, <0.1 = Poor)")
-            print(f"{'='*60}")
+            if verbose:
+                print(f"{'-'*60}")
+                print(f"Mean Reciprocal Rank (MRR): {avg_mrr:.4f}")
+                print(f"{'='*60}")
+            return avg_mrr
         else:
-            print("No valid test cases found.")
+            return 0.0
 
 if __name__ == "__main__":
     evaluator = IREvaluator()

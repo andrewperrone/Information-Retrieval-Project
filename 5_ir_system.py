@@ -80,17 +80,12 @@ class IRSystem:
         print(f"System loaded in {time.time() - start_time:.2f} seconds.")
 
     def process_query(self, query_text):
-        """
-        Tokenizes and normalizes the search query.
-        """
         tokens = re.findall(r'\b[a-z]+\b', query_text.lower())
         return tokens
 
     def text_search(self, query_text):
         """
         Performs a Length-Normalized TF-IDF search.
-        Input: query_text: Raw search query string
-        Output: List of (doc_id, score) tuples sorted by relevance
         """
         tokens = self.process_query(query_text)
         if not tokens:
@@ -110,6 +105,7 @@ class IRSystem:
         final_scores = []
         for doc_id, raw_score in doc_scores.items():
             length = self.doc_lengths.get(doc_id, 1)
+            # Square root normalization
             norm_factor = np.sqrt(length)
             if norm_factor < 1: norm_factor = 1
             
@@ -119,22 +115,16 @@ class IRSystem:
         ranked_results = sorted(final_scores, key=lambda x: x[1], reverse=True)
         return ranked_results
 
-    def filter_by_emotion(self, text_results, emotion, min_score=0):
+    def filter_by_emotion(self, text_results, emotion, min_score=0, text_weight=1.0, emotion_weight=1.0):
         """
-        Filters and ranks documents based on emotion scores.
-        Input: text_results: List of (doc_id, score) from text search, or empty for emotion-only mode
-        emotion: Target emotion to filter by (e.g., 'joy', 'fear')
-        min_score: Minimum raw emotion count threshold
-        Output: List of (doc_id, combined_score, emotion_density) tuples
+        Filters and re-ranks results using a weighted formula.
         """
         filtered_results = []
         
-        # Handle emotion-only mode when text_results is empty
+        # If text_results is None/Empty, use ALL docs (Emotion-Only Mode)
         if text_results:
-            candidates = text_results  # Use text search results if available
+            candidates = text_results
         else:
-            # In emotion-only mode, create candidates with zero text score
-            # This allows consistent processing in the loop below
             candidates = [(doc, 0) for doc in self.doc_ids]
         
         for doc_id, text_score in candidates:
@@ -142,14 +132,16 @@ class IRSystem:
                 raw_emotion_count = self.emotion_data[doc_id].get(emotion, 0)
                 length = self.doc_lengths.get(doc_id, 1)
                 
-                # Calculate emotion density as a percentage of document length
-                # This normalizes for document size, making scores comparable across documents
+                # Emotion Density (Percentage)
                 emotion_density = raw_emotion_count / length
-                emotion_score_scaled = emotion_density * 100  # Convert to percentage
+                emotion_score_scaled = emotion_density * 100
                 
-                # Combine text relevance score with emotion score
-                # Note: This simple addition gives equal weight to both factors
-                combined_score = text_score + emotion_score_scaled
+                # --- WEIGHTED SCORING LOGIC ---
+                weighted_text = text_score * text_weight
+                weighted_emotion = emotion_score_scaled * emotion_weight
+                
+                combined_score = weighted_text + weighted_emotion
+                # ------------------------------
                 
                 if raw_emotion_count >= min_score:
                     filtered_results.append((doc_id, combined_score, emotion_score_scaled))
@@ -161,7 +153,7 @@ if __name__ == "__main__":
     system = IRSystem()
     
     print("\n" + "="*40)
-    print("   DEV LEVEL SEARCH ENGINE (Hybrid) READY")
+    print("   DEV LEVEL SEARCH ENGINE (Tuner Ready)")
     print("   (Type 'exit' to quit)")
     print("="*40)
     
@@ -169,14 +161,14 @@ if __name__ == "__main__":
         print("\nOptions:")
         print("1. Text Search Only")
         print("2. Text + Emotion Filter")
-        print("3. Emotion Only")
+        print("3. Emotion Only (Discovery Mode)")
         
         choice = input("\nEnter choice (1/2/3): ").strip()
         
         if choice.lower() == 'exit': 
             break
             
-        elif choice == '1':
+        if choice == '1':
             query = input("Enter search terms: ").strip()
             results = system.text_search(query)
             
@@ -195,19 +187,15 @@ if __name__ == "__main__":
             print(f"\nFound {len(final_results)} documents matching '{query}' with '{emotion}'.")
             print("--- Top 10 Results ---")
             for doc, comb_score, emo_score in final_results[:10]:
-                print(f"[Comb: {comb_score:.2f} | {emotion} density: {emo_score:.2f}%] {doc}")
+                print(f"[Comb: {comb_score:.2f} | {emotion}: {emo_score:.2f}%] {doc}")
 
         elif choice == '3':
             emotion = input("Enter emotion to explore (joy, fear, etc.): ").strip().lower()
-            
-            # Pass empty list to filter_by_emotion to search across all documents
-            # This enables emotion-based discovery without text filtering
             final_results = system.filter_by_emotion([], emotion)
             
             print(f"\nFound {len(final_results)} documents ranked by '{emotion}'.")
             print(f"--- Top 10 Most '{emotion.title()}' Books ---")
             for doc, comb_score, emo_score in final_results[:10]:
-                # In this mode, Combined Score == Emotion Score
                 print(f"[Density: {emo_score:.2f}%] {doc}")
                 
         else:
