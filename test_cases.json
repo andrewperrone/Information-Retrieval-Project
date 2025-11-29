@@ -5,7 +5,7 @@
         "emotion": "fear"
     },
     {
-        "target_title": "Alice in Wonderland",
+        "target_title": "Alice", 
         "query": "rabbit tea queen",
         "emotion": "surprise"
     },
@@ -20,7 +20,7 @@
         "emotion": "joy"
     },
     {
-        "target_title": "Winnie the Pooh",
+        "target_title": "Winnie",
         "query": "bear honey",
         "emotion": "trust"
     },

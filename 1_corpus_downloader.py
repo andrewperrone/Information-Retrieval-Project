@@ -141,7 +141,7 @@ def save_book(book_id, title, text, directory="gutenberg_corpus"):
 # --- Main Controller ---
 if __name__ == "__main__":
     
-    TARGET_BOOK_COUNT = 1000
+    TARGET_BOOK_COUNT = 20
     SAVE_DIRECTORY = "gutenberg_corpus"
     
     if not os.path.exists(SAVE_DIRECTORY):

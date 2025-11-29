@@ -1,74 +1,70 @@
 """
-Information Retrieval System Evaluator
+Information Retrieval System Evaluator (Segment-Level)
 
-This script evaluates the performance of the IR system by testing its ability to retrieve
-specific known documents from the corpus. It calculates Mean Reciprocal Rank (MRR) to
-measure search result quality and identifies the ranking position of target documents.
+This script evaluates the performance of the IR system using industry-standard metrics.
+It handles the mapping between "Target Books" (what we want) and "Text Segments" (what we find).
+
+Metrics:
+1. Success@10 (Hit Rate): Percentage of queries where the correct book appears in the top 10.
+2. nDCG@10: Ranking quality score (rewards relevant results appearing higher).
+3. MRR: Mean Reciprocal Rank (focuses on the very first relevant result).
 
 Inputs:
-- test_cases.json: JSON file containing test cases with queries and expected documents
-- Pre-built IR system (via IRSystem)
-- Processed corpus and search index
+- test_cases.json: JSON file containing test cases
+- Pre-built IR system (via IRSystem in 5_ir_system.py)
 
 Outputs:
-- Console output showing test results and MRR score
-- Detailed ranking information for each test case
-- Overall evaluation metrics
-
-Process:
-1. Loads test cases from JSON file
-2. For each test case:
-   a. Finds the target document ID using fuzzy matching
-   b. Executes the search query using the IR system
-   c. Determines the rank of the target document in results
-   d. Calculates reciprocal rank for the test case
-3. Computes overall MRR across all test cases
-4. Prints detailed evaluation report
+- Detailed metrics per query
+- Aggregated system performance report
 """
-
-# 1. Finds the correct doc_id in the corpus for "Moby Dick" (handling the 123_filename.txt format).
-# 2. Executes the search.
-# 3. Finds where "Moby Dick" ended up in the ranking
-# 4. Computes the MRR (Mean Reciprocal Rank). If the book is #1, score is 1.0, if #2, score is 0.5, if #10, score is 0.1.
 
 import json
 import os
+import math
 from ir_system import IRSystem
 
 # --- Configuration ---
 TEST_CASES_FILE = "test_cases.json"
+TOP_K = 10  # Evaluate top 10 results
 # ---------------------
 
 class IREvaluator:
     def __init__(self):
-        # Load the actual system
+        # Load the search engine
         self.system = IRSystem()
-        self.corpus_files = self.system.doc_ids
         
-    def find_target_doc_id(self, target_title_fragment):
+        # Create a reverse map: "moby dick" -> "2701"
+        self.title_to_id = {}
+        for book_id, title in self.system.title_map.items():
+            self.title_to_id[title.lower()] = book_id
+            
+    def find_target_book_id(self, target_title_fragment):
         """
-        Fuzzy search to find the actual filename (doc_id) based on a user's
-        simple book title (e.g., "Moby Dick" -> "2701_Moby_Dick_Or_The_Whale.txt").
+        Finds the Book ID (e.g., '2701') for a given title (e.g., 'Moby Dick').
         """
         target_title_fragment = target_title_fragment.lower()
         matches = []
         
-        for doc_id in self.corpus_files:
-            # Normalize filename for search (replace underscores with spaces)
-            clean_name = doc_id.lower().replace("_", " ")
-            if target_title_fragment in clean_name:
-                matches.append(doc_id)
+        # Search our title map
+        for title, book_id in self.title_to_id.items():
+            if target_title_fragment in title:
+                matches.append(book_id)
         
-        if not matches:
-            return None
-        
-        # If multiple matches (e.g., duplicates), return the list.
-        # Any of these being high ranked counts as success.
         return matches
+
+    def calculate_ndcg(self, rank, k):
+        """
+        Calculates nDCG score for a single query.
+        """
+        if rank > k:
+            return 0.0
+        # DCG = 1 / log2(rank + 1)
+        # IDCG is 1.0 because we assume there is at least one relevant result
+        return (1.0 / math.log2(rank + 1))
 
     def evaluate(self):
         print(f"\n{'='*60}")
-        print(f"STARTING AUTOMATED EVALUATION")
+        print(f"STARTING SEGMENT-LEVEL EVALUATION (k={TOP_K})")
         print(f"{'='*60}")
         
         if not os.path.exists(TEST_CASES_FILE):
@@ -78,66 +74,91 @@ class IREvaluator:
         with open(TEST_CASES_FILE, 'r') as f:
             test_cases = json.load(f)
 
-        total_mrr = 0
-        total_cases = 0
+        metrics = {
+            "mrr": 0.0,
+            "ndcg": 0.0,
+            "success": 0.0,
+            "total": 0
+        }
         
         for case in test_cases:
             target_title = case['target_title']
             query = case['query']
             emotion = case['emotion']
             
-            print(f"\n--- Case: '{target_title}' ---")
-            print(f"    Query: '{query}' + '{emotion}'")
+            print(f"\nQuery: '{query}' + '{emotion}' (Target: {target_title})")
             
-            # 1. Identify the Target File(s)
-            target_ids = self.find_target_doc_id(target_title)
+            # 1. Find the ID for the target book
+            target_ids = self.find_target_book_id(target_title)
             if not target_ids:
                 print(f"    [SKIPPED] Target book '{target_title}' not found in corpus.")
                 continue
             
-            # 2. Run the System
-            # We get the top 50 results to check deeper rankings
+            # 2. Run System (Fetch top results)
+            # Pass empty list to text_search if query is empty
             text_results = self.system.text_search(query)
             final_results = self.system.filter_by_emotion(text_results, emotion)
             
-            # 3. Find Rank
+            # 3. Check Results for a Match
             rank = float('inf')
-            found_id = None
+            found_segment = None
+            found_book_id = None
             
-            for i, (doc_id, score, emo_score) in enumerate(final_results):
-                # Check if this result is one of our acceptable targets
-                if doc_id in target_ids:
-                    rank = i + 1 # 1-based index
-                    found_id = doc_id
+            # Look through the top 50 results to find the rank
+            for i, (doc_id, _, _) in enumerate(final_results[:50]):
+                # doc_id is "2701_45". We split it to get "2701"
+                current_book_id = doc_id.split('_')[0]
+                
+                if current_book_id in target_ids:
+                    rank = i + 1
+                    found_segment = doc_id
+                    found_book_id = current_book_id
                     break
             
-            # 4. Score (Reciprocal Rank)
-            # Score = 1/Rank. 
-            # Rank 1 = 1.0, Rank 2 = 0.5, Rank 5 = 0.2, Not Found = 0.0
-            reciprocal_rank = 0.0
-            if rank != float('inf'):
-                reciprocal_rank = 1.0 / rank
-                print(f"    [SUCCESS] Found at Rank #{rank} ({found_id})")
-            else:
-                print(f"    [FAILURE] Not found in top results.")
-                
-            print(f"    Score: {reciprocal_rank:.4f}")
+            # 4. Calculate Scores
+            # Success@K
+            is_success = 1.0 if rank <= TOP_K else 0.0
             
-            total_mrr += reciprocal_rank
-            total_cases += 1
+            # MRR
+            rr = 1.0 / rank if rank != float('inf') else 0.0
+            
+            # nDCG@K
+            ndcg = self.calculate_ndcg(rank, TOP_K)
+            
+            # Log this specific case
+            if is_success:
+                print(f"    [SUCCESS] Found at Rank #{rank} (Segment: {found_segment})")
+            elif rank != float('inf'):
+                print(f"    [FOUND] But rank #{rank} is > {TOP_K}")
+            else:
+                print(f"    [FAILURE] Not found in top 50.")
+                
+            metrics["success"] += is_success
+            metrics["mrr"] += rr
+            metrics["ndcg"] += ndcg
+            metrics["total"] += 1
 
         # --- Final Report ---
-        if total_cases > 0:
-            avg_mrr = total_mrr / total_cases
+        if metrics["total"] > 0:
             print(f"\n{'='*60}")
-            print(f"EVALUATION SUMMARY")
+            print(f"FINAL PERFORMANCE REPORT (N={metrics['total']})")
             print(f"{'='*60}")
-            print(f"Total Cases Run: {total_cases}")
-            print(f"Mean Reciprocal Rank (MRR): {avg_mrr:.4f}")
-            print(f"  (1.0 = Perfect, >0.5 = Good, <0.1 = Poor)")
+            print(f"Success Rate @{TOP_K}:           {metrics['success'] / metrics['total'] * 100:.1f}%")
+            print(f"Average nDCG@{TOP_K}:            {metrics['ndcg'] / metrics['total']:.4f}")
+            print(f"Mean Reciprocal Rank (MRR):  {metrics['mrr'] / metrics['total']:.4f}")
             print(f"{'='*60}")
+            
+            # Interpretation Helper
+            score = metrics['ndcg'] / metrics['total']
+            print("\nInterpretation:")
+            if score > 0.5:
+                print(">> Excellent! Relevant segments are appearing near the top.")
+            elif score > 0.3:
+                print(">> Good. The system is working, but could be tighter.")
+            else:
+                print(">> Low. The emotion filter might be overpowering the text relevance.")
         else:
-            print("No valid test cases found.")
+            print("No valid test cases run.")
 
 if __name__ == "__main__":
     evaluator = IREvaluator()
