@@ -35,7 +35,7 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-# --- SHARED DENYLIST (Space-separated) ---
+# --- DENYLIST ---
 # This list matches the logic in corpus_cleaner.py
 DENYLIST = [
     # Collections / Compilations
@@ -69,6 +69,21 @@ DENYLIST = [
 ]
 
 def strip_gutenberg_headers(text):
+    """
+    Removes Project Gutenberg header and footer from the text content.
+    
+    Args:
+        text (str): The raw text content from a Gutenberg book
+        
+    Returns:
+        str: Cleaned text with Gutenberg headers and footers removed
+        
+    This function specifically targets the standard Gutenberg header/footer format:
+    - Header: *** START OF THIS PROJECT GUTENBERG EBOOK ... ***
+    - Footer: *** END OF THIS PROJECT GUTENBERG EBOOK ... ***
+    
+    The function preserves only the actual book content between these markers.
+    """
     start_match = re.search(r"\*\*\*\s*START OF (THIS|THE) PROJECT GUTENBERG EBOOK.*?\*\*\*", text, re.IGNORECASE | re.DOTALL)
     if start_match:
         text = text[start_match.end():]
@@ -80,6 +95,20 @@ def strip_gutenberg_headers(text):
     return text.strip()
 
 def create_retry_session():
+    """
+    Creates a requests Session with automatic retry logic for failed requests.
+    
+    Returns:
+        requests.Session: A configured session object with retry capabilities
+        
+    This function sets up a session that will automatically retry failed requests
+    with exponential backoff. It's for handling server rate limits such as 
+    (HTTP 429) and server errors (5xx). The session will:
+    - Retry up to 5 times
+    - Use exponential backoff starting at 1 second
+    - Retry on status codes: 429, 500, 502, 503, 504
+    - Apply to both HTTP and HTTPS requests
+    """
     session = requests.Session()
     retry = Retry(
         total=5,
@@ -92,18 +121,38 @@ def create_retry_session():
     return session
 
 def download_and_clean_book(book_id, session):
+    """
+    Downloads and processes a single book from Project Gutenberg.
+    
+    Args:
+        book_id (int/str): The Gutenberg ID of the book to download
+        session (requests.Session): The session object to use for HTTP requests
+        
+    Returns:
+        tuple: (book_title, cleaned_text) if successful, (None, None) on failure
+        
+    This function:
+    1. Fetches book metadata from the Gutenberg API
+    2. Tries to download the plain text version first, falls back to HTML if needed
+    3. Cleans the text by removing Gutenberg headers/footers
+    4. Returns the book title and cleaned text content
+    
+    The function includes error handling for network issues and invalid responses.
+    A small delay (0.5s) is added between requests to be respectful to the server.
+    """
     api_url = f"https://gutendex.com/books/{book_id}"
     text_url = None
     html_url = None
     book_title = f"book_{book_id}" 
 
     try:
-        time.sleep(0.5) 
+        time.sleep(0.5)  # Be nice to the server
         response = session.get(api_url)
         response.raise_for_status()
         book = response.json()
         book_title = book['title']
         
+        # Find the best available format (prefer plain text over HTML)
         for mimetype, url in book['formats'].items():
             if 'text/plain' in mimetype and (url.endswith('.txt') or url.endswith('.txt.utf-8')):
                 text_url = url
@@ -113,12 +162,14 @@ def download_and_clean_book(book_id, session):
         
         clean_text = None
         
+        # Try plain text first
         if text_url:
             book_response = session.get(text_url)
-            book_response.encoding = 'utf-8-sig'
+            book_response.encoding = 'utf-8-sig'  # Handle Byte Order Mark (BOM) if present
             if book_response.status_code == 200:
                 clean_text = strip_gutenberg_headers(book_response.text)
         
+        # Fall back to HTML if plain text not available
         elif html_url:
             book_response = session.get(html_url)
             if book_response.status_code == 200:
@@ -136,12 +187,33 @@ def download_and_clean_book(book_id, session):
         return None, None
 
 def save_book(book_id, title, text, directory="gutenberg_corpus"):
+    """
+    Saves the book text to a file with a sanitized filename.
+    
+    Args:
+        book_id (int/str): The Gutenberg ID of the book
+        title (str): The book's title
+        text (str): The cleaned text content to save
+        directory (str): The directory to save the file in (default: "gutenberg_corpus")
+        
+    Returns:
+        bool: True if save was successful, False otherwise
+        
+    The function:
+    1. Creates a filesystem-safe filename from the book ID and title
+    2. Handles edge cases like empty titles
+    3. Limits the filename length to prevent filesystem issues
+    4. Saves the text with UTF-8 encoding
+    5. Returns success/failure status
+    """
+    # Create a safe filename by removing special characters and normalizing spaces
     safe_title = re.sub(r'[^a-zA-Z0-9_\- ]', '', title).strip().replace(' ', '_')
     if not safe_title:
         safe_title = "unknown_title"
     
+    # Combine ID and title, ensuring reasonable length
     safe_filename = f"{book_id}_{safe_title}"
-    safe_filename = (safe_filename[:150] + ".txt")
+    safe_filename = (safe_filename[:150] + ".txt")  # Truncate if too long
     
     filepath = os.path.join(directory, safe_filename)
     
@@ -155,14 +227,16 @@ def save_book(book_id, title, text, directory="gutenberg_corpus"):
 
 # --- Main Controller ---
 if __name__ == "__main__":
-    
+    # Configuration: Set target number of books and output directory
     TARGET_BOOK_COUNT = 1000
     SAVE_DIRECTORY = "gutenberg_corpus"
     
+    # Create output directory if it doesn't exist
     if not os.path.exists(SAVE_DIRECTORY):
         os.makedirs(SAVE_DIRECTORY)
         print(f"Created directory: {SAVE_DIRECTORY}")
-        
+    
+    # Scan for existing downloaded books to enable resuming
     print(f"Checking for existing files in {SAVE_DIRECTORY}...")
     try:
         existing_files = os.listdir(SAVE_DIRECTORY)
@@ -183,17 +257,20 @@ if __name__ == "__main__":
     fail_count = 0
     session = create_retry_session()
     
+    # Initialize API endpoint with popular fiction books
     next_page_url = "https://gutendex.com/books?sort=popular&bookshelf=Fiction"
-    
     print(f"Starting download process. Goal: {TARGET_BOOK_COUNT} total books.")
     
+    # Main download loop: Continue until target count is reached or no more pages
     while success_count < TARGET_BOOK_COUNT and next_page_url:
         print(f"Fetching next page of results: {next_page_url}")
         
+        # Fetch and parse the current page of results with retry logic
         data = None
         page_retries = 0
         MAX_PAGE_RETRIES = 5
         
+        # Retry logic for fetching the current page
         while page_retries < MAX_PAGE_RETRIES:
             try:
                 page_response = session.get(next_page_url)
@@ -209,33 +286,39 @@ if __name__ == "__main__":
                     time.sleep(5)
                 page_retries += 1
         
+        # Exit if we couldn't fetch the page after retries
         if not data:
             print("Critical Error: Could not fetch page after multiple retries. Saving progress and stopping.")
             break
         
+        # Get the next page URL for pagination
         next_page_url = data.get('next')
         if not next_page_url:
             print("--- Reached the last page of results ---")
-            
+        
+        # Process each book in the current page of results
         for book in data['results']:
             book_id_str = str(book['id'])
             book_title_lower = book['title'].lower()
             
+            # Skip already downloaded books
             if book_id_str in existing_ids:
                 continue 
             
-            # --- CHECK AGAINST DENYLIST ---
+            # Skip books matching denylist criteria
             if any(keyword in book_title_lower for keyword in DENYLIST):
                 print(f"  Skipping ID {book_id_str}: Title '{book['title']}' matches denylist.")
                 continue
                 
+            # Skip non-English books
             if 'en' not in book['languages']:
                 continue
 
+            # Download and process the current book
             print(f"Attempting download for ID {book_id_str}...")
-            
             title, text = download_and_clean_book(book['id'], session)
             
+            # Save the book if download was successful
             if title and text:
                 if save_book(book['id'], title, text, SAVE_DIRECTORY):
                     success_count += 1
@@ -246,13 +329,16 @@ if __name__ == "__main__":
             else:
                 fail_count += 1
             
+            # Exit if we've reached our target count
             if success_count >= TARGET_BOOK_COUNT:
                 print("Download target reached!")
                 break
         
+        # Clean exit if target count is reached
         if success_count >= TARGET_BOOK_COUNT:
             next_page_url = None 
     
+    # Print final statistics
     print("\n--- Download Complete! ---")
     print(f"Successfully downloaded: {success_count} books")
     print(f"Failed or skipped:     {fail_count} books")

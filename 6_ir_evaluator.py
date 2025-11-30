@@ -54,6 +54,16 @@ TEST_CASES_FILE = "test_cases.json"
 # ---------------------
 
 class IREvaluator:
+    """
+    A class to evaluate the performance of an Information Retrieval system.
+    
+    This evaluator provides methods to measure search quality using standard IR metrics
+    including Mean Reciprocal Rank (MRR) and precision at k (P@k).
+    
+    Attributes:
+        ir_system: The IR system being evaluated
+        verbose: Whether to print detailed evaluation output
+    """
     def __init__(self):
         # Load the actual system
         self.system = IRSystem()
@@ -61,7 +71,7 @@ class IREvaluator:
         
     def normalize_string(self, text):
         """
-        Aggressively cleans a string for fuzzy matching.
+        Cleans a string for fuzzy matching.
         """
         text = text.lower()
         text = text.replace("_", " ").replace("-", " ")

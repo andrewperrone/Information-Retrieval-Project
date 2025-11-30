@@ -50,7 +50,9 @@ from nrclex import NRCLex
 from collections import defaultdict
 from nltk.tokenize import word_tokenize
 
-# --- Negation Configuration ---
+# --- Configuration ---
+# Terms that negate the emotional meaning of subsequent words
+# These are used to identify and exclude negated emotional expressions
 NEGATION_TERMS = {
     'not', 'never', 'no', 'nothing', 'neither', 'nor', 
     'nowhere', 'hardly', 'scarcely', 'barely', 'didnt', 
@@ -58,17 +60,32 @@ NEGATION_TERMS = {
     'shouldnt', 'cant', 'cannot', "n't"
 }
 
-def get_negation_aware_emotions(text_chunk):
+# Number of previous words to check for negation terms
+# This defines the window size for negation detection
+NEGATION_WINDOW_SIZE = 2
+
+def get_negation_aware_emotions(text_chunk: str) -> dict:
     """
-    Analyzes a text chunk for emotions, but IGNORES words
-    that are immediately preceded by a negation term.
+    Analyzes a text chunk for emotions while handling negation contexts.
+    
+    Args:
+        text_chunk (str): A segment of text to analyze for emotional content
+        
+    Returns:
+        dict: A dictionary mapping emotion types to their scores in the text chunk,
+              with negated emotional words excluded
+              
+    Example:
+        >>> text = "I am happy but not sad"
+        >>> get_negation_aware_emotions(text)
+        {'joy': 1}  # 'sad' is negated and excluded
     """
     # Tokenize the chunk so we can look at previous words
     tokens = word_tokenize(text_chunk.lower())
     chunk_vector = defaultdict(int)
     
     # Define a 'window' to look back. 
-    LOOKBACK_WINDOW = 2 
+    LOOKBACK_WINDOW = NEGATION_WINDOW_SIZE 
     
     for i, word in enumerate(tokens):
         # 1. Check if the word has emotion
@@ -97,17 +114,27 @@ def get_negation_aware_emotions(text_chunk):
     
     return chunk_vector
 
-def analyze_corpus_emotions_by_book(corpus_dir):
+def analyze_corpus_emotions_by_book(corpus_dir: str) -> list[tuple[str, dict]]:
     """
-    Reads all .txt files, analyzes them chunk-by-chunk for 8 core emotions
-    (with negation handling), and returns a list of (doc_id, vector) tuples.
+    Analyzes emotional content of all text files in a directory using the NRC Emotion Lexicon.
+    
+    Args:
+        corpus_dir (str): Path to directory containing .txt files to analyze
+        
+    Returns:
+        list[tuple[str, dict]]: List of (document_id, emotion_vector) tuples where:
+            - document_id (str): The filename of the analyzed document
+            - emotion_vector (dict): Dictionary mapping emotion types to their scores
+            
+    The function processes each document in chunks, applies negation-aware emotion detection,
+    and aggregates scores across all chunks. Results are automatically saved to 'emotion_results.pkl'.
     """
     print(f"Starting NRC Emotion Lexicon (Book-Level + Negation) analysis...")
     
     # This list will store tuples: (doc_id, {'joy': 150, 'anger': 80, ...})
     all_book_emotions = []
     
-    # 2. Find all .txt files
+    # Find all .txt files
     file_paths = glob.glob(os.path.join(corpus_dir, "*.txt"))
     
     if not file_paths:
@@ -117,7 +144,7 @@ def analyze_corpus_emotions_by_book(corpus_dir):
     print(f"Found {len(file_paths)} files. Starting analysis...")
     start_time = time.time()
     
-    # 3. Loop, Read, and Analyze each file
+    # Loop, Read, and Analyze each file
     for i, filepath in enumerate(file_paths):
         doc_id = os.path.basename(filepath)
         
@@ -135,16 +162,16 @@ def analyze_corpus_emotions_by_book(corpus_dir):
             # --- The Aggregation Method ---
             book_emotion_vector = defaultdict(int)
             
-            # 5. Analyze each chunk using the NEW NEGATION FUNCTION
+            # Analyze each chunk using the NEW NEGATION FUNCTION
             for chunk in chunks:
-                # --- CHANGED: Use custom function instead of raw NRCLex ---
+                # --- Use custom function instead of raw NRCLex, includes negation ---
                 chunk_scores = get_negation_aware_emotions(chunk)
                 
                 # Add these counts to the book's total vector
                 for emotion, score in chunk_scores.items():
                     book_emotion_vector[emotion] += score
             
-            # 6. Store the final vector for the book
+            # Store the final vector for the book
             if book_emotion_vector:
                 all_book_emotions.append((doc_id, dict(book_emotion_vector)))
             
@@ -172,20 +199,28 @@ def analyze_corpus_emotions_by_book(corpus_dir):
 
 # --- Main execution ---
 if __name__ == "__main__":
+    # Configuration
+    CORPUS_DIRECTORY = "gutenberg_corpus"  # Directory containing text files to analyze
     
-    CORPUS_DIRECTORY = "gutenberg_corpus"
-    
-    # Make sure NLTK tokenizer data is available
+    # Ensure required NLTK data is available
     try:
         nltk.data.find('tokenizers/punkt')
     except LookupError:
+        print("Downloading NLTK punkt tokenizer...")
         nltk.download('punkt')
 
+    # Run emotion analysis on the corpus
+    print("Starting emotion analysis...")
     results = analyze_corpus_emotions_by_book(CORPUS_DIRECTORY)
     
-    # 3. Show the most "emotional" books
+    # Display top results
     if results:
+        # Sort by joy score in descending order and show top 5
         print("\n--- Top 5 Most 'Joyful' Books (Negation Aware) ---")
         results.sort(key=lambda x: x[1].get('joy', 0), reverse=True)
-        for doc_id, vector in results[:5]:
-            print(f"  Joy Count: {vector.get('joy', 0):<5} | File: {doc_id}")
+        for i, (doc_id, vector) in enumerate(results[:5], 1):
+            print(f"{i}. {doc_id}")
+            print(f"   Joy: {vector.get('joy', 0):<5} | "
+                  f"Sadness: {vector.get('sadness', 0):<5} | "
+                  f"Anger: {vector.get('anger', 0):<5} | "
+                  f"Fear: {vector.get('fear', 0):<5}")

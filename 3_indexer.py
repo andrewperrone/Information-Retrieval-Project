@@ -36,12 +36,19 @@ import os
 import time
 from collections import defaultdict, Counter
 
-def build_index(processed_corpus_file):
+def build_index(processed_corpus_file: str) -> tuple[dict, dict, dict]:
     """
-    Reads the processed corpus and builds:
-    1. Inverted Index: {term: {doc_id: tf_count, ...}}
-    2. IDF Scores: {term: idf_score}
-    3. Doc Lengths: {doc_id: total_word_count}
+    Builds search index components from a processed corpus.
+    
+    Args:
+        processed_corpus_file (str): Path to the pickled corpus file containing 
+            {doc_id: [tokens]} mapping
+    
+    Returns:
+        tuple: A tuple containing three elements:
+            - inverted_index (dict): {term: {doc_id: term_frequency, ...}}
+            - idf_scores (dict): {term: idf_score} where idf_score = log(N/(df + 1))
+            - doc_lengths (dict): {doc_id: total_word_count}
     """
     print(f"Loading corpus from {processed_corpus_file}...")
     
@@ -74,6 +81,11 @@ def build_index(processed_corpus_file):
             doc_frequency[token] += 1
 
     # --- Step 2: Calculate IDF ---
+    # IDF (Inverse Document Frequency) measures how important a term is across documents
+    # We use log(N/(df + 1)) where:
+    # - N: total number of documents
+    # - df: document frequency of the term
+    # The +1 in denominator is for smoothing (avoiding division by zero)
     idf_scores = {}
     for token, freq in doc_frequency.items():
         idf_scores[token] = math.log(num_documents / (freq + 1))
@@ -86,9 +98,21 @@ def build_index(processed_corpus_file):
     
     return inverted_index, idf_scores, doc_lengths
 
-def save_index(inverted_index, idf_scores, doc_lengths, filename="search_index.pkl"):
+def save_index(inverted_index: dict, idf_scores: dict, doc_lengths: dict, 
+               filename: str = "search_index.pkl") -> None:
     """
-    Saves index, IDF scores, and doc lengths to a pickle file.
+    Saves the search index components to a pickle file for later use.
+    
+    Args:
+        inverted_index (dict): Inverted index mapping terms to document frequencies
+        idf_scores (dict): IDF scores for each term
+        doc_lengths (dict): Length of each document in tokens
+        filename (str): Path where the index will be saved (default: "search_index.pkl")
+    
+    The saved file contains a dictionary with three keys:
+    - 'inverted_index': The main inverted index
+    - 'idf_scores': Pre-computed IDF scores
+    - 'doc_lengths': Document lengths for normalization
     """
     data = {
         'inverted_index': inverted_index,
@@ -105,12 +129,17 @@ def save_index(inverted_index, idf_scores, doc_lengths, filename="search_index.p
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    CORPUS_FILE = "processed_corpus.pkl"
-    INDEX_FILE = "search_index.pkl"
+    # Configuration
+    CORPUS_FILE = "processed_corpus.pkl"  # Input: Output from corpus processor
+    INDEX_FILE = "search_index.pkl"       # Output: Will contain the search index
     
-    # 1. Build (Now returns 3 items)
+    # 1. Build the index components
+    print("Starting index construction...")
     inv_index, idfs, lengths = build_index(CORPUS_FILE)
     
-    # 2. Save
+    # 2. Save the index if all components were built successfully
     if inv_index and idfs and lengths:
+        print(f"Saving index to {INDEX_FILE}...")
         save_index(inv_index, idfs, lengths, INDEX_FILE)
+    else:
+        print("Error: Failed to build one or more index components")
