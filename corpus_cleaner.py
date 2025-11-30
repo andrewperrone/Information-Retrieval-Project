@@ -32,11 +32,6 @@ import os
 # --- Configuration ---
 CORPUS_DIR = "gutenberg_corpus"
 
-import os
-
-# --- Configuration ---
-CORPUS_DIR = "gutenberg_corpus"
-
 # Case-insensitive keywords that indicate a file should be deleted
 # These must match the denylist in download_corpus.py to prevent re-download loops
 DELETE_KEYWORDS = [

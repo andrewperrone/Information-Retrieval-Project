@@ -144,10 +144,9 @@ if __name__ == "__main__":
     
     corpus = None
     
-    # Check if exists
+    # Check if exists #TODO: Review code, remove if unneeded
     if os.path.exists(CORPUS_SAVE_FILE):
         print(f"Found saved corpus: {CORPUS_SAVE_FILE}")
-        # RECOMMENDATION: Since you are switching to chunks, we force a rebuild
         print("Re-building corpus to ensure Chunking is applied...")
         corpus = None
 
