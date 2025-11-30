@@ -3,3 +3,4 @@ beautifulsoup4==4.12.2
 nltk==3.8.1
 nrclex==0.2.1
 numpy==1.24.3
+matplotlib==3.7.1

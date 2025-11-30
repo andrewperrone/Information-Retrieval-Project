@@ -49,6 +49,7 @@
 *.data
 *.model
 *.joblib
+*.png
 
 # Exclude directories
 gutenberg_corpus/
