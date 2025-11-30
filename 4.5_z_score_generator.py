@@ -1,3 +1,31 @@
+"""
+Emotion Z-Score Generator
+
+This script calculates and saves statistical measures (mean and standard deviation) for emotion densities
+across the document corpus. These statistics are used for z-score normalization of emotion vectors.
+
+Action:
+It calculates the "Average" and "Standard Deviation" for every emotion across the library.
+
+Connection:
+This provides the Normalization Math (Z-Scores) to the IR System, allowing it to rank "scary" books 
+fairly regardless of their length.
+
+Inputs:
+- emotion_results.pkl: Contains raw emotion counts per document
+- search_index.pkl: Contains document lengths for density calculation
+
+Outputs:
+- emotion_stats.pkl: Dictionary containing mean and standard deviation for each emotion's density
+- Console output showing calculated statistics
+
+Process:
+1. Loads emotion data and document lengths from pickle files
+2. Calculates emotion densities for each document
+3. Computes mean and standard deviation for each emotion's density
+4. Saves the statistics for use in emotion analysis
+"""
+
 import pickle
 import numpy as np
 import os

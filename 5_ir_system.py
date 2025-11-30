@@ -4,6 +4,10 @@ Hybrid Information Retrieval System with Emotion Analysis
 This script implements a search engine that combines traditional TF-IDF text search with emotion analysis.
 It allows users to search documents by keywords, filter by emotional content, or discover documents with specific emotional profiles.
 
+Action: It waits for a user query.
+1. It uses the Index to find books matching keywords (BM25(pending)/TF-IDF(current)).
+2. It uses Emotion Results + Stats to re-rank those books based on emotional intensity (Z-Score).
+
 Key Features:
 1. Text Search: Traditional TF-IDF with length normalization
 2. Emotion Filtering: Filter search results by emotional content

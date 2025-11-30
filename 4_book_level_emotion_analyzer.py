@@ -5,6 +5,12 @@ This script analyzes the emotional content of books from Project Gutenberg using
 It processes each book in chunks (paragraphs) and implements negation handling to improve emotion detection accuracy.
 Emotional words that appear after negation terms (e.g., 'not happy') are excluded from the analysis.
 
+Action:
+It scans books for emotion words using the NRC Lexicon and handles negation (skipping "not happy").
+
+Connection:
+This provides the Raw Emotion Data to the IR System, by generating emotion_results.pkl.
+
 Key Features:
 - Token-level emotion analysis with negation detection
 - Configurable lookback window for negation terms

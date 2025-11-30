@@ -1,3 +1,34 @@
+"""
+Grid Search Tuner for IR System
+
+This script performs a grid search to find the optimal weights for combining text relevance
+and emotion scores in the IR system's ranking function. It systematically tests different
+weight combinations and evaluates their performance using Mean Reciprocal Rank (MRR).
+
+Action:
+It automates the process of finding the best balance between text relevance and emotion
+scores by testing all combinations of weights and selecting the one with the highest MRR.
+
+Connection:
+Imports IREvaluator from 6_ir_evaluator.py to perform evaluations with different weight combinations.
+
+Inputs:
+- Pre-configured test cases from IREvaluator
+- Range of weight values to test (0.0 to 3.0)
+
+Outputs:
+- Console table showing MRR scores for each weight combination
+- Top 5 best performing weight configurations
+- Recommended optimal weights for text and emotion scoring
+
+Process:
+1. Initializes the IR system and loads test cases
+2. Tests all combinations of text and emotion weights
+3. Calculates MRR for each combination
+4. Ranks and displays the top performing weight combinations
+5. Provides a recommended configuration for production use
+"""
+
 import time
 import importlib.util
 spec = importlib.util.spec_from_file_location("ir_evaluator", "6_ir_evaluator.py")

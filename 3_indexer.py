@@ -5,6 +5,13 @@ This script builds a search index from processed text documents to enable effici
 information retrieval. It creates an inverted index, calculates IDF scores, and
 tracks document lengths for use in ranking search results.
 
+Action:
+It counts word frequencies (TF), calcualtes word rarity (IDF), and maps words to books (Inverted Index).
+It also counts total words per book (Doc Lengths).
+
+Connection:
+This provides the Text Search capability to the IR System, by generating search_index.pkl.
+
 Inputs:
 - processed_corpus.pkl: A pickled dictionary of {doc_id: [tokens]} created by 2_corpus_processor.py
 

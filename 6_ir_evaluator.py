@@ -5,6 +5,13 @@ This script evaluates the performance of the IR system by testing its ability to
 specific known documents from the corpus. It calculates Mean Reciprocal Rank (MRR) to
 measure search result quality and identifies the ranking position of target documents.
 
+Action:
+It feeds a list of "Golden Standard" queries (e.g., "whale" -> Moby Dick) and checks 
+if the system ranks the correct book highly (MRR Score). It helps you tune the weights between Text and Emotion.
+
+Connection:
+Imports IRSystem from 5_ir_system.py.
+
 Inputs:
 - test_cases.json: JSON file containing test cases with queries and expected documents
 - Pre-built IR system (via IRSystem)

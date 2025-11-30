@@ -4,6 +4,12 @@ Gutenberg Corpus Processor
 This script processes raw text files from Project Gutenberg by tokenizing and normalizing the text.
 It creates a searchable corpus that can be saved/loaded for efficient access in subsequent runs.
 
+Action:
+It reads books, tokenizes them (splits into words), and removes non-words.
+
+Connection:
+This script generates processed_corpus.pkl, a required input for indexer.py.
+
 Inputs:
 - Directory containing .txt files (default: "gutenberg_corpus")
 - NLTK data (automatically downloaded if missing)

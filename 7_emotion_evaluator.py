@@ -1,3 +1,34 @@
+"""
+Emotion Validator for Book Corpus
+
+This script evaluates the accuracy of emotion detection by comparing the system's output against
+predefined emotional archetypes from classic literature. It calculates percentiles to show how strongly
+the detected emotions match the expected emotional profiles of well-known books.
+
+Action:
+It tests if the emotion detection system correctly identifies the dominant emotions in classic books
+with well-established emotional tones (e.g., fear in "Dracula", joy in "Winnie the Pooh").
+
+Connection:
+Imports IRSystem from 5_ir_system.py to access emotion data and document information.
+
+Inputs:
+- Pre-loaded IR system with emotion data
+- Hardcoded list of literary archetypes and their expected emotions
+
+Outputs:
+- Console table showing each book's expected emotion vs actual dominant emotions
+- Percentile scores indicating how strongly each book matches its expected emotion
+- Visual indicators of analysis quality (Excellent/Good/Mismatch)
+
+Process:
+1. Loads the IR system and its emotion data
+2. Calculates emotion densities across the entire corpus
+3. For each archetypal book, determines the percentile of its expected emotion
+4. Displays a comparison of expected vs actual dominant emotions
+5. Provides interpretation guidelines for the results
+"""
+
 import numpy as np
 import importlib.util
 spec = importlib.util.spec_from_file_location("ir_system", "5_ir_system.py")
