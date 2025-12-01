@@ -49,6 +49,7 @@ import pickle
 from nrclex import NRCLex
 from collections import defaultdict
 from nltk.tokenize import word_tokenize
+from typing import List, Tuple, Dict, Any
 
 # --- Configuration ---
 # Terms that negate the emotional meaning of subsequent words

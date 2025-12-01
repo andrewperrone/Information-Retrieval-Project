@@ -37,6 +37,7 @@ spec.loader.exec_module(ir_system)
 IRSystem = ir_system.IRSystem
 # Above replaces this faulty import:
 # from 5_ir_system import IRSystem
+from typing import List, Tuple, Dict, Any
 
 # --- Configuration: The "Golden Standard" for Vibe ---
 # We list books that are UNDENIABLY associated with specific emotions.

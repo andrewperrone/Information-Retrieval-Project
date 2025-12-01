@@ -35,6 +35,7 @@ import math
 import os
 import time
 from collections import defaultdict, Counter
+from typing import List, Tuple, Dict, Any
 
 def build_index(processed_corpus_file: str) -> tuple[dict, dict, dict]:
     """

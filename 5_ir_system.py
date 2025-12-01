@@ -41,6 +41,7 @@ import numpy as np
 import nltk
 from nltk.corpus import wordnet
 from collections import defaultdict
+from typing import List, Tuple, Dict, Any
 
 # --- Configuration ---
 INDEX_FILE = "search_index.pkl"
