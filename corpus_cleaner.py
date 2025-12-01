@@ -61,7 +61,12 @@ DENYLIST = [
     
     # Epics / Religious
     "mahabharata", "ramayana", "bible", "testament", "psalms",
-    "sermons", "divine comedy", "nibelungenlied"
+    "sermons", "divine comedy", "nibelungenlied",
+
+    # Extra
+    "illustrations", # Catches "The Tenniel Illustrations..."
+    "index",         # Catches "Index of..." files
+    "readme"        # Catches Audio Book readmes
 ]
 
 def clean_corpus(directory):

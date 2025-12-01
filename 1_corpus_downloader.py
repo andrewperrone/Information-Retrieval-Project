@@ -22,6 +22,7 @@ Process:
    - Downloads the text content (preferring plain text, falling back to HTML)
    - Cleans the text by removing Gutenberg headers/footers
    - Skips books matching denylist criteria (collections, references, etc.)
+   - **NEW: Skips books that are too short (< 20,000 characters)**
    - Saves cleaned text to a file with a sanitized filename
 5. Continues until target book count is reached or no more books available
 6. Handles rate limiting and network errors with retries
@@ -65,7 +66,12 @@ DENYLIST = [
     
     # Epics / Religious
     "mahabharata", "ramayana", "bible", "testament", "psalms",
-    "sermons", "divine comedy", "nibelungenlied"
+    "sermons", "divine comedy", "nibelungenlied",
+
+    # Extra
+    "illustrations", # Catches "The Tenniel Illustrations..."
+    "index",         # Catches "Index of..." files
+    "readme"        # Catches Audio Book readmes
 ]
 
 def strip_gutenberg_headers(text):
@@ -113,6 +119,7 @@ def create_retry_session():
     retry = Retry(
         total=5,
         backoff_factor=1, 
+        # Added 429 to the list of codes to retry on
         status_forcelist=[429, 500, 502, 503, 504], 
     )
     adapter = HTTPAdapter(max_retries=retry)
@@ -135,7 +142,8 @@ def download_and_clean_book(book_id, session):
     1. Fetches book metadata from the Gutenberg API
     2. Tries to download the plain text version first, falls back to HTML if needed
     3. Cleans the text by removing Gutenberg headers/footers
-    4. Returns the book title and cleaned text content
+    4. Checks if text is long enough to be a real book
+    5. Returns the book title and cleaned text content
     
     The function includes error handling for network issues and invalid responses.
     A small delay (0.5s) is added between requests to be respectful to the server.
@@ -176,6 +184,16 @@ def download_and_clean_book(book_id, session):
                 soup = BeautifulSoup(book_response.text, 'html.parser')
                 clean_text = soup.body.get_text(separator=' ', strip=True) if soup.body else soup.get_text(separator=' ', strip=True)
         
+        # --- LENGTH CHECK ---
+        # 20,000 characters is roughly 3,000 words. 
+        # Anything shorter is likely a short story collection intro, an index, or a stub.
+        MIN_CHAR_LENGTH = 20000 
+        
+        if clean_text and len(clean_text) < MIN_CHAR_LENGTH:
+            print(f"  Skipping ID {book_id}: Text too short ({len(clean_text)} chars). Likely a stub/index.")
+            return None, None
+        # --------------------
+
         if clean_text:
             return book_title, clean_text
         else:
