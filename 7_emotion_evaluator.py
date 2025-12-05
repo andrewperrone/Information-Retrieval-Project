@@ -39,7 +39,7 @@ IRSystem = ir_system.IRSystem
 # from 5_ir_system import IRSystem
 from typing import List, Tuple, Dict, Any
 
-# --- Configuration: The "Golden Standard" for Vibe ---
+# --- Configuration: The "Golden Standard" for Overall feel ---
 # We list books that are UNDENIABLY associated with specific emotions.
 ARCHETYPES = [
     {"title": "Dracula", "expected_emotion": "fear"},
@@ -50,7 +50,8 @@ ARCHETYPES = [
     {"title": "Alice in Wonderland", "expected_emotion": "surprise"},
     {"title": "The Adventures of Tom Sawyer", "expected_emotion": "joy"},
     {"title": "Romeo and Juliet", "expected_emotion": "sadness"},
-    {"title": "The Picture of Dorian Gray", "expected_emotion": "disgust"}
+    {"title": "The Picture of Dorian Gray", "expected_emotion": "disgust"},
+    {"title": "The Art of War", "expected_emotion": "fear"}
 ]
 
 class EmotionValidator:

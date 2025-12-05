@@ -255,6 +255,15 @@ class IRSystem:
                 else:
                     z_score = 0 
                 
+                # Cap the Z-Score at 3.0. Anything higher is likely noise/junk data.
+                # This prevents "Synonym" books from breaking the ranking.
+                if z_score > 3.0:
+                    z_score = 3.0
+
+                # If z_score is negative, set it to 0
+                if z_score < 0:
+                    z_score = 0
+                
                 # Only consider positive Z-scores (above average emotion density)
                 # Treat anything below average (negative Z) as 0
                 effective_emotion_score = max(0, z_score)
@@ -308,7 +317,7 @@ if __name__ == "__main__":
             text_results = system.text_search(query)
 
             # Apply emotion filtering with equal weights
-            final_results = system.filter_by_emotion(text_results, emotion, text_weight=0.5, emotion_weight=1.0)
+            final_results = system.filter_by_emotion(text_results, emotion, text_weight=2.0, emotion_weight=0.5)
             
             print(f"\nFound {len(final_results)} documents matching '{query}' with '{emotion}'.")
             print("--- Top 10 Results ---")

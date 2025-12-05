@@ -87,7 +87,7 @@ def analyze_book(target_title_fragment):
     # Store results for sorting
     results = []
     
-    print(f"{'Emotion':<15} | {'Raw Count':<10} | {'Density':<10} | {'Z-Score (The Vibe)'}")
+    print(f"{'Emotion':<15} | {'Raw Count':<10} | {'Density':<10} | {'Z-Score'}")
     print("-" * 65)
     
     for emo in ['joy', 'sadness', 'anger', 'fear', 'trust', 'disgust', 'anticipation', 'surprise']:

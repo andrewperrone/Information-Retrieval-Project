@@ -90,7 +90,7 @@ class IREvaluator:
                 matches.append(doc_id)
         return matches
 
-    def evaluate(self, text_weight=1.0, emotion_weight=1.0, verbose=True):
+    def evaluate(self, text_weight=2.0, emotion_weight=0.5, verbose=True):
         """
         Runs the evaluation suite with specific weights.
         Returns the Mean Reciprocal Rank (MRR) score.

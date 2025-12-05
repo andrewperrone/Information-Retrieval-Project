@@ -66,7 +66,13 @@ DENYLIST = [
     # Extra
     "illustrations", # Catches "The Tenniel Illustrations..."
     "index",         # Catches "Index of..." files
-    "readme"        # Catches Audio Book readmes
+    "readme",        # Catches Audio Book readmes
+    "synonyms", "antonyms", 
+    "supernatural_in", # Catches the literary criticism
+    "modern_english_fiction",
+    "crimes_and_punishments", # Catches the legal text
+    "maha-bharata", # Catches the hyphenated version
+    "maha_bharata"
 ]
 
 def clean_corpus(directory):

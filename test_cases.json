@@ -60,11 +60,6 @@
         "emotion": "anticipation"
     },
     {
-        "target_title": "Jane Eyre",
-        "query": "governess rochester fire",
-        "emotion": "trust"
-    },
-    {
         "target_title": "The Adventures of Tom Sawyer",
         "query": "fence cave mississippi",
         "emotion": "joy"
