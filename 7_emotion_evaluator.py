@@ -39,8 +39,9 @@ IRSystem = ir_system.IRSystem
 # from 5_ir_system import IRSystem
 from typing import List, Tuple, Dict, Any
 
-# --- Configuration: The "Golden Standard" for Overall feel ---
-# We list books that are UNDENIABLY associated with specific emotions.
+# --- Configuration: The "Bronze Standard" for Overall emotion ---
+# We list books that are UNDENIABLY associated with specific emotions, 
+# according to commonsense/previous knowledge on said book.
 ARCHETYPES = [
     {"title": "Dracula", "expected_emotion": "fear"},
     {"title": "Frankenstein", "expected_emotion": "fear"},

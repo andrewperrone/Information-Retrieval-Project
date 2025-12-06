@@ -6,8 +6,9 @@ specific known documents from the corpus. It calculates Mean Reciprocal Rank (MR
 measure search result quality and identifies the ranking position of target documents.
 
 Action:
-It feeds a list of "Golden Standard" queries (e.g., "whale" -> Moby Dick) and checks 
-if the system ranks the correct book highly (MRR Score). It helps you tune the weights between Text and Emotion.
+It feeds a list of "Bronze Standard" queries (e.g., "whale" -> Moby Dick) and checks 
+if the system ranks the correct book highly (MRR Score). 
+It helps with tuning the weights between Text and Emotion.
 
 Connection:
 Imports IRSystem from 5_ir_system.py.
